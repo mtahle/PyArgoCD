@@ -103,17 +103,17 @@ class ArgoCDClient:
     # ------------------------------------------------------------------
     # Public API methods
     def list_apps(self) -> List[Dict[str, Any]]:
-        r = self.session.get(f"{self.base_url}/api/v1/applications")
+        r = self.session.get(f"{self.base_url}/api/v1/applications", timeout=10)
         r.raise_for_status()
         return r.json().get("items", [])
 
     def list_envs(self) -> List[Dict[str, Any]]:
-        r = self.session.get(f"{self.base_url}/api/v1/clusters")
+        r = self.session.get(f"{self.base_url}/api/v1/clusters", timeout=10)
         r.raise_for_status()
         return r.json().get("items", [])
 
     def list_projects(self) -> List[Dict[str, Any]]:
-        r = self.session.get(f"{self.base_url}/api/v1/projects")
+        r = self.session.get(f"{self.base_url}/api/v1/projects", timeout=10)
         r.raise_for_status()
         return r.json().get("items", [])
 
