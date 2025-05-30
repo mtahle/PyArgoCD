@@ -1,0 +1,21 @@
+[project]
+name = "pyargocd"
+version = "0.1.0"
+description = "Python wrapper for ArgoCD APIs using Kubernetes auth"
+authors = [
+    {name = "Mujahed Altahle"}
+]
+readme = "README.md"
+license = {file = "LICENSE"}
+
+dependencies = [
+    "kubernetes",
+    "requests"
+]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project.optional-dependencies]
+dev = ["pytest"]
