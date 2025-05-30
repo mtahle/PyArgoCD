@@ -21,7 +21,7 @@ class ArgoCDClient:
         username: str | None = None,
         password: str | None = None,
         context: str | None = None,
-        verify_ssl: bool = False,
+        verify_ssl: bool = True,
     ) -> None:
         """Initialise the client.
 
