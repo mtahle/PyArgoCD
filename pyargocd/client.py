@@ -70,7 +70,7 @@ class ArgoCDClient:
             token = self._login("admin", password)
             self.session.headers.update({"Authorization": f"Bearer {token}"})
             return
-        except Exception:
+        except (kubernetes.client.exceptions.ApiException, requests.exceptions.RequestException):
             token = self._get_kube_token()
             if not token:
                 raise RuntimeError("Failed to authenticate to ArgoCD")
