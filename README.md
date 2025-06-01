@@ -19,3 +19,20 @@ client = ArgoCDClient(
     verify_ssl=False,
 )
 ```
+
+## Installation
+
+Install the package along with the development dependencies defined in
+`pyproject.toml`:
+
+```bash
+pip install -e .[dev]
+```
+
+## Running tests
+
+After installing the development dependencies, run the test suite with:
+
+```bash
+PYTHONPATH=. pytest -q
+```
