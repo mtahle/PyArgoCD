@@ -41,6 +41,7 @@ class ArgoCDClient:
             Optional Kubernetes context to use when loading configuration.
         verify_ssl:
             Whether to verify HTTPS certificates when talking to ArgoCD.
+            Defaults to ``True``.
         """
         kubernetes.config.load_kube_config(context=context)
         self._core = k8s_client.CoreV1Api()
