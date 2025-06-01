@@ -65,21 +65,36 @@ class ArgoCDClient:
             self.session.headers.update({"Authorization": f"Bearer {token}"})
             return
 
+        token = self._get_kube_token()
+        if token:
+            try:
+                token = self._login_with_token(token)
+                self.session.headers.update({"Authorization": f"Bearer {token}"})
+                return
+            except requests.exceptions.RequestException:
+                pass
+
         try:
             password = self._get_admin_password()
             token = self._login("admin", password)
             self.session.headers.update({"Authorization": f"Bearer {token}"})
             return
         except (kubernetes.client.exceptions.ApiException, requests.exceptions.RequestException):
-            token = self._get_kube_token()
-            if not token:
-                raise RuntimeError("Failed to authenticate to ArgoCD")
-            self.session.headers.update({"Authorization": f"Bearer {token}"})
+            raise RuntimeError("Failed to authenticate to ArgoCD")
 
     def _login(self, username: str, password: str) -> str:
         response = self.session.post(
             f"{self.base_url}/api/v1/session",
             json={"username": username, "password": password},
+            timeout=10,
+        )
+        response.raise_for_status()
+        return response.json()["token"]
+
+    def _login_with_token(self, kube_token: str) -> str:
+        response = self.session.post(
+            f"{self.base_url}/api/v1/session",
+            json={"token": kube_token},
             timeout=10,
         )
         response.raise_for_status()
@@ -92,7 +107,7 @@ class ArgoCDClient:
         return base64.b64decode(password_b64).decode()
 
     def _get_kube_token(self) -> str | None:
-        cfg = k8s_client.Configuration.get_default_copy()
+        cfg = k8s_client.ApiClient().configuration
         token = cfg.api_key.get("authorization") if cfg.api_key else None
         if not token:
             return None
