@@ -85,3 +85,45 @@ def test_fallback_to_admin_password():
                 json={"username": "admin", "password": "password"},
                 timeout=10,
             )
+
+
+def test_default_ssl_verification():
+    session_mock = mock.MagicMock()
+    session_mock.post.return_value.json.return_value = {"token": "dummy"}
+    session_mock.post.return_value.raise_for_status.return_value = None
+    with mock.patch("requests.Session", return_value=session_mock):
+        with mock.patch("kubernetes.config.load_kube_config"), \
+                mock.patch("kubernetes.client.CoreV1Api") as core, \
+                mock.patch("kubernetes.client.ApiClient") as api_client:
+            core.return_value.read_namespaced_secret.return_value.data = {
+                "password": "cGFzc3dvcmQ="
+            }
+            api_client.return_value.configuration.api_key = {
+                "authorization": "Bearer k8s"
+            }
+            ArgoCDClient(host="https://example.com", namespace="argocd")
+    assert session_mock.verify is True
+
+
+def test_disable_ssl_verification():
+    session_mock = mock.MagicMock()
+    session_mock.post.return_value.json.return_value = {"token": "dummy"}
+    session_mock.post.return_value.raise_for_status.return_value = None
+    with mock.patch("requests.Session", return_value=session_mock):
+        with mock.patch("kubernetes.config.load_kube_config"), \
+                mock.patch("kubernetes.client.CoreV1Api") as core, \
+                mock.patch("kubernetes.client.ApiClient") as api_client, \
+                mock.patch("warnings.filterwarnings") as filterwarn:
+            core.return_value.read_namespaced_secret.return_value.data = {
+                "password": "cGFzc3dvcmQ="
+            }
+            api_client.return_value.configuration.api_key = {
+                "authorization": "Bearer k8s"
+            }
+            ArgoCDClient(
+                host="https://example.com",
+                namespace="argocd",
+                verify_ssl=False,
+            )
+    assert session_mock.verify is False
+    filterwarn.assert_called_with("ignore", message="Unverified HTTPS request")
