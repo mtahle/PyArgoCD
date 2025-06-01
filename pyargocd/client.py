@@ -10,6 +10,10 @@ from kubernetes import client as k8s_client
 import requests
 
 
+class ArgoCDAuthError(Exception):
+    """Raised when authentication to ArgoCD fails."""
+
+
 class ArgoCDClient:
     """Simple wrapper around the ArgoCD REST API."""
 
@@ -72,7 +76,7 @@ class ArgoCDClient:
                 token = self._login_with_token(token)
                 self.session.headers.update({"Authorization": f"Bearer {token}"})
                 return
-            except requests.exceptions.RequestException:
+            except (requests.exceptions.RequestException, ArgoCDAuthError):
                 pass
 
         try:
@@ -84,27 +88,36 @@ class ArgoCDClient:
             raise RuntimeError("Failed to authenticate to ArgoCD")
 
     def _login(self, username: str, password: str) -> str:
-        response = self.session.post(
-            f"{self.base_url}/api/v1/session",
-            json={"username": username, "password": password},
-            timeout=10,
-        )
-        response.raise_for_status()
+        try:
+            response = self.session.post(
+                f"{self.base_url}/api/v1/session",
+                json={"username": username, "password": password},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except requests.exceptions.RequestException as exc:
+            raise ArgoCDAuthError(f"Failed to login as '{username}': {exc}") from exc
         return response.json()["token"]
 
     def _login_with_token(self, kube_token: str) -> str:
-        response = self.session.post(
-            f"{self.base_url}/api/v1/session",
-            json={"token": kube_token},
-            timeout=10,
-        )
-        response.raise_for_status()
+        try:
+            response = self.session.post(
+                f"{self.base_url}/api/v1/session",
+                json={"token": kube_token},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except requests.exceptions.RequestException as exc:
+            raise ArgoCDAuthError(f"Failed to login with token: {exc}") from exc
         return response.json()["token"]
 
     def _get_admin_password(self) -> str:
         secret_name = "argocd-initial-admin-secret"
-        secret = self._core.read_namespaced_secret(secret_name, self.namespace)
-        password_b64 = secret.data["password"]
+        try:
+            secret = self._core.read_namespaced_secret(secret_name, self.namespace)
+            password_b64 = secret.data["password"]
+        except Exception as exc:  # ApiException or KeyError
+            raise ArgoCDAuthError(f"Failed to read admin password secret: {exc}") from exc
         return base64.b64decode(password_b64).decode()
 
     def _get_kube_token(self) -> str | None:

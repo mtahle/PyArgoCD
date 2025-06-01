@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 import requests
 
-from pyargocd.client import ArgoCDClient
+from pyargocd.client import ArgoCDClient, ArgoCDAuthError
 
 
 def make_client():
@@ -127,3 +127,31 @@ def test_disable_ssl_verification():
             )
     assert session_mock.verify is False
     filterwarn.assert_called_with("ignore", message="Unverified HTTPS request")
+
+
+def test_missing_admin_secret():
+    with mock.patch("kubernetes.config.load_kube_config"), \
+            mock.patch("kubernetes.client.CoreV1Api") as core, \
+            mock.patch("kubernetes.client.ApiClient") as api_client:
+        core.return_value.read_namespaced_secret.side_effect = Exception("boom")
+        api_client.return_value.configuration.api_key = {}
+        with pytest.raises(ArgoCDAuthError):
+            ArgoCDClient(host="https://example.com", namespace="argocd")
+
+
+def test_login_failure():
+    with mock.patch("kubernetes.config.load_kube_config"), \
+            mock.patch("kubernetes.client.CoreV1Api") as core, \
+            mock.patch("kubernetes.client.ApiClient") as api_client:
+        core.return_value.read_namespaced_secret.return_value.data = {
+            "password": "cGFzc3dvcmQ="
+        }
+        api_client.return_value.configuration.api_key = {"authorization": "Bearer k8s"}
+
+        response = mock.Mock()
+        response.raise_for_status.side_effect = requests.HTTPError("unauthorized")
+        response.json.return_value = {}
+
+        with mock.patch("requests.Session.post", return_value=response):
+            with pytest.raises(ArgoCDAuthError):
+                ArgoCDClient(host="https://example.com", namespace="argocd")
