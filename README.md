@@ -37,3 +37,21 @@ We welcome contributions through GitHub pull requests. To get started:
 Package releases are automated. When a maintainer pushes a tag like
 `v1.2.3`, the workflow in `.github/workflows/publish.yml` builds and
 publishes the package to PyPI using the `PYPI_API_TOKEN` secret.
+
+
+## Installation
+
+Install the package along with the development dependencies defined in
+`pyproject.toml`:
+
+```bash
+pip install -e .[dev]
+```
+
+## Running tests
+
+After installing the development dependencies, run the test suite with:
+
+```bash
+PYTHONPATH=. pytest -q
+```

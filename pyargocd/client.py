@@ -10,6 +10,7 @@ from kubernetes import client as k8s_client
 import requests
 
 
+
 class ArgoCDClient:
     """Simple wrapper around the ArgoCD REST API."""
 
@@ -77,6 +78,7 @@ class ArgoCDClient:
 
     def list_envs(self) -> List[Dict[str, Any]]:
         r = self.session.get(f"{self.base_url}/api/v1/clusters")
+
         r.raise_for_status()
         return r.json().get("items", [])
 

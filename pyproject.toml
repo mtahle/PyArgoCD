@@ -3,7 +3,7 @@ name = "pyargocd"
 version = "0.1.0"
 description = "Python wrapper for ArgoCD APIs using Kubernetes auth"
 authors = [
-    {name = "Mujahed Altahle"}
+    {name = "Mujahed Altahleh"}
 ]
 readme = "README.md"
 license = {file = "LICENSE"}

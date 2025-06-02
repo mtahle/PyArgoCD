@@ -1,9 +1,6 @@
 from unittest import mock
-
 import pytest
-
 from pyargocd.client import ArgoCDClient
-
 
 def make_client():
     with mock.patch("kubernetes.config.load_kube_config"), \
@@ -33,3 +30,4 @@ def test_refresh_sync():
         client.refresh_app("myapp")
         client.sync_app("myapp")
         assert post.call_count == 2
+
