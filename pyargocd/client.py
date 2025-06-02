@@ -53,6 +53,32 @@ class ArgoCDClient:
     # ------------------------------------------------------------------
     # Authentication helpers
     def _authenticate(self) -> None:
+        """Authenticate the session using Kubernetes credentials if possible."""
+
+        token = None
+        try:
+            api_client = k8s_client.ApiClient()
+            token = api_client.configuration.api_key.get("authorization")
+        except Exception:
+            token = None
+
+        if token:
+            try:
+                response = self.session.post(
+                    f"{self.base_url}/api/v1/session",
+                    json={"token": token},
+                    timeout=10,
+                )
+                response.raise_for_status()
+                session_token = response.json()["token"]
+                self.session.headers.update(
+                    {"Authorization": f"Bearer {session_token}"}
+                )
+                return
+            except Exception:
+                # If token based login fails fall back to admin password
+                pass
+
         password = self._get_admin_password()
         response = self.session.post(
             f"{self.base_url}/api/v1/session",
@@ -60,8 +86,8 @@ class ArgoCDClient:
             timeout=10,
         )
         response.raise_for_status()
-        token = response.json()["token"]
-        self.session.headers.update({"Authorization": f"Bearer {token}"})
+        session_token = response.json()["token"]
+        self.session.headers.update({"Authorization": f"Bearer {session_token}"})
 
     def _get_admin_password(self) -> str:
         secret_name = "argocd-initial-admin-secret"
