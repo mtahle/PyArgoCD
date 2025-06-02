@@ -1,24 +1,43 @@
 # PyArgoCD
 
-PyArgoCD is a minimal Python wrapper around the ArgoCD API. It authenticates using your Kubernetes configuration so no `argocd` CLI is required. The client exchanges the bearer token from your current context for an ArgoCD session token and falls back to the initial admin password if that fails. Provide the server URL and namespace and the client can list, refresh and sync your applications.
+PyArgoCD provides a thin wrapper around the ArgoCD REST API while
+leveraging the Kubernetes configuration on your machine for authentication.
+It performs a similar login flow to `argocd login --core` but is done
+entirely in Python without requiring the `argocd` CLI to be installed.
+
+## Features
+
+* Authenticate to ArgoCD using the current Kubernetes context
+* List applications, clusters and projects
+* Refresh and synchronise applications
+
+## Usage
 
 ```python
 from pyargocd.client import ArgoCDClient
 
-client = ArgoCDClient(host="https://argocd.example.com", namespace="argocd")
+client = ArgoCDClient()
 print(client.list_apps())
 ```
 
-SSL certificates are verified by default. If you are using a self-signed
-certificate, pass `verify_ssl=False` when creating the client:
+The client expects access to the Kubernetes cluster running ArgoCD. By
+default it assumes the `argocd-server` service is available in the
+`argocd` namespace. You can override these values when creating the
+client.
 
-```python
-client = ArgoCDClient(
-    host="https://argocd.example.com",
-    namespace="argocd",
-    verify_ssl=False,
-)
-```
+## Contributing
+
+We welcome contributions through GitHub pull requests. To get started:
+
+1. Fork the repository and create a branch for your change.
+2. Install the development requirements with `pip install -e .[dev]`.
+3. Run the tests via `PYTHONPATH=. pytest -q`.
+4. Open a pull request for review.
+
+Package releases are automated. When a maintainer pushes a tag like
+`v1.2.3`, the workflow in `.github/workflows/publish.yml` builds and
+publishes the package to PyPI using the `PYPI_API_TOKEN` secret.
+
 
 ## Installation
 

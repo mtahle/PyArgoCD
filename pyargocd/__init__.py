@@ -1,5 +1,6 @@
 """PyArgoCD package."""
 
-from .client import ArgoCDClient, ArgoCDAuthError
+from .client import ArgoCDClient
 
-__all__ = ["ArgoCDClient", "ArgoCDAuthError"]
+__all__ = ["ArgoCDClient"]
+

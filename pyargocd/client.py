@@ -10,49 +10,37 @@ from kubernetes import client as k8s_client
 import requests
 
 
-class ArgoCDAuthError(Exception):
-    """Raised when authentication to ArgoCD fails."""
-
 
 class ArgoCDClient:
     """Simple wrapper around the ArgoCD REST API."""
 
     def __init__(
         self,
-        host: str,
-        namespace: str,
-        *,
-        username: str | None = None,
-        password: str | None = None,
+        host: str | None = None,
+        namespace: str = "argocd",
         context: str | None = None,
-        verify_ssl: bool = True,
+        verify_ssl: bool = False,
     ) -> None:
         """Initialise the client.
 
         Parameters
         ----------
         host:
-            Fully qualified URL of the ArgoCD server.
+            ArgoCD server host. If not provided, the client will attempt to
+            use the `argocd-server` service in the provided ``namespace``.
         namespace:
             Namespace where ArgoCD is deployed.
-        username:
-            Optional username for login. If omitted the client will try the
-            initial admin secret and finally fall back to the current
-            Kubernetes credentials.
-        password:
-            Password for ``username`` if provided.
         context:
             Optional Kubernetes context to use when loading configuration.
         verify_ssl:
             Whether to verify HTTPS certificates when talking to ArgoCD.
-            Defaults to ``True``.
         """
         kubernetes.config.load_kube_config(context=context)
         self._core = k8s_client.CoreV1Api()
         self.namespace = namespace
-        self.username = username
-        self.password = password
 
+        if host is None:
+            host = f"https://argocd-server.{namespace}.svc"
         self.base_url = host.rstrip("/")
 
         self.session = requests.Session()
@@ -65,84 +53,37 @@ class ArgoCDClient:
     # ------------------------------------------------------------------
     # Authentication helpers
     def _authenticate(self) -> None:
-        if self.username and self.password:
-            token = self._login(self.username, self.password)
-            self.session.headers.update({"Authorization": f"Bearer {token}"})
-            return
-
-        token = self._get_kube_token()
-        if token:
-            try:
-                token = self._login_with_token(token)
-                self.session.headers.update({"Authorization": f"Bearer {token}"})
-                return
-            except (requests.exceptions.RequestException, ArgoCDAuthError):
-                pass
-
-        try:
-            password = self._get_admin_password()
-            token = self._login("admin", password)
-            self.session.headers.update({"Authorization": f"Bearer {token}"})
-            return
-        except (kubernetes.client.exceptions.ApiException, requests.exceptions.RequestException):
-            raise RuntimeError("Failed to authenticate to ArgoCD")
-
-    def _login(self, username: str, password: str) -> str:
-        try:
-            response = self.session.post(
-                f"{self.base_url}/api/v1/session",
-                json={"username": username, "password": password},
-                timeout=10,
-            )
-            response.raise_for_status()
-        except requests.exceptions.RequestException as exc:
-            raise ArgoCDAuthError(f"Failed to login as '{username}': {exc}") from exc
-        return response.json()["token"]
-
-    def _login_with_token(self, kube_token: str) -> str:
-        try:
-            response = self.session.post(
-                f"{self.base_url}/api/v1/session",
-                json={"token": kube_token},
-                timeout=10,
-            )
-            response.raise_for_status()
-        except requests.exceptions.RequestException as exc:
-            raise ArgoCDAuthError(f"Failed to login with token: {exc}") from exc
-        return response.json()["token"]
+        password = self._get_admin_password()
+        response = self.session.post(
+            f"{self.base_url}/api/v1/session",
+            json={"username": "admin", "password": password},
+            timeout=10,
+        )
+        response.raise_for_status()
+        token = response.json()["token"]
+        self.session.headers.update({"Authorization": f"Bearer {token}"})
 
     def _get_admin_password(self) -> str:
         secret_name = "argocd-initial-admin-secret"
-        try:
-            secret = self._core.read_namespaced_secret(secret_name, self.namespace)
-            password_b64 = secret.data["password"]
-        except Exception as exc:  # ApiException or KeyError
-            raise ArgoCDAuthError(f"Failed to read admin password secret: {exc}") from exc
+        secret = self._core.read_namespaced_secret(secret_name, self.namespace)
+        password_b64 = secret.data["password"]
         return base64.b64decode(password_b64).decode()
-
-    def _get_kube_token(self) -> str | None:
-        cfg = k8s_client.ApiClient().configuration
-        token = cfg.api_key.get("authorization") if cfg.api_key else None
-        if not token:
-            return None
-        if token.startswith("Bearer "):
-            return token.split(" ", 1)[1]
-        return token
 
     # ------------------------------------------------------------------
     # Public API methods
     def list_apps(self) -> List[Dict[str, Any]]:
-        r = self.session.get(f"{self.base_url}/api/v1/applications", timeout=10)
+        r = self.session.get(f"{self.base_url}/api/v1/applications")
         r.raise_for_status()
         return r.json().get("items", [])
 
     def list_envs(self) -> List[Dict[str, Any]]:
-        r = self.session.get(f"{self.base_url}/api/v1/clusters", timeout=10)
+        r = self.session.get(f"{self.base_url}/api/v1/clusters")
+
         r.raise_for_status()
         return r.json().get("items", [])
 
     def list_projects(self) -> List[Dict[str, Any]]:
-        r = self.session.get(f"{self.base_url}/api/v1/projects", timeout=10)
+        r = self.session.get(f"{self.base_url}/api/v1/projects")
         r.raise_for_status()
         return r.json().get("items", [])
 
