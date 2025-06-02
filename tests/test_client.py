@@ -1,6 +1,40 @@
 from unittest import mock
+import sys
+import types
 import pytest
 import requests
+
+# ---------------------------------------------------------------------------
+# Inject a minimal ``kubernetes`` module so the tests can run without the real
+# dependency being installed.  ``ArgoCDClient`` expects ``kubernetes.config``
+# and ``kubernetes.client`` to be importable with the following attributes.
+config_mod = types.ModuleType("kubernetes.config")
+client_mod = types.ModuleType("kubernetes.client")
+
+def load_kube_config(context=None):
+    """Dummy ``load_kube_config`` used by the tests."""
+    return None
+
+class CoreV1Api:
+    def read_namespaced_secret(self, name, namespace):
+        pass
+
+class ApiClient:
+    def __init__(self):
+        self.configuration = type("Config", (), {"api_key": {}})()
+
+config_mod.load_kube_config = load_kube_config
+client_mod.CoreV1Api = CoreV1Api
+client_mod.ApiClient = ApiClient
+
+kubernetes_mod = types.ModuleType("kubernetes")
+kubernetes_mod.config = config_mod
+kubernetes_mod.client = client_mod
+
+sys.modules.setdefault("kubernetes", kubernetes_mod)
+sys.modules.setdefault("kubernetes.config", config_mod)
+sys.modules.setdefault("kubernetes.client", client_mod)
+
 from pyargocd.client import ArgoCDClient
 
 def make_client():
