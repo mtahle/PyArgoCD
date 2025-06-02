@@ -25,6 +25,11 @@ default it assumes the `argocd-server` service is available in the
 `argocd` namespace. You can override these values when creating the
 client.
 
+When initialised, the client attempts to obtain the bearer token from the
+current Kubernetes context via ``kubernetes.client.ApiClient`` and posts this
+token to ``/api/v1/session`` similar to ``argocd login --core``. If that
+login fails it falls back to using the ``argocd-initial-admin-secret``.
+
 ## Contributing
 
 We welcome contributions through GitHub pull requests. To get started:
