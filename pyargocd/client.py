@@ -62,6 +62,11 @@ class ArgoCDClient:
         except Exception:
             token = None
 
+        # ``kubernetes`` stores tokens with a ``Bearer`` prefix. Strip it so
+        # ArgoCD receives only the raw token value.
+        if isinstance(token, str) and token.startswith("Bearer "):
+            token = token.split(" ", 1)[1]
+
         if token:
             try:
                 response = self.session.post(

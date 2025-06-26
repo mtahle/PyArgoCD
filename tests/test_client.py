@@ -88,3 +88,22 @@ def test_login_fallback_to_admin():
         assert post.call_args_list[0].kwargs["json"] == {"token": "k8sToken"}
         assert post.call_args_list[1].kwargs["json"] == {"username": "admin", "password": "password"}
 
+
+def test_strip_bearer_prefix():
+    """Token retrieved from kubernetes may include a ``Bearer`` prefix."""
+    with mock.patch("kubernetes.config.load_kube_config"), \
+            mock.patch("kubernetes.client.ApiClient") as api_client, \
+            mock.patch("kubernetes.client.CoreV1Api") as core, \
+            mock.patch("requests.Session.post") as post:
+        api_client.return_value.configuration.api_key = {
+            "authorization": "Bearer mytoken"
+        }
+        core.return_value.read_namespaced_secret.return_value.data = {
+            "password": "cGFzc3dvcmQ="
+        }
+        post.return_value.json.return_value = {"token": "dummy"}
+        post.return_value.raise_for_status.return_value = None
+        ArgoCDClient(host="https://example.com")
+        assert post.call_args_list[0].kwargs["json"] == {"token": "mytoken"}
+
+
